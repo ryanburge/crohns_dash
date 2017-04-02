@@ -11,7 +11,6 @@ poop$time <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M:%S",tz=""
 poop$ds  <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M",tz="")) ,format = "%Y-%m-%d")
 
 day <- poop %>% group_by(ds) %>% summarise(y = n())
-is.na(day)
 
 m <- prophet(day)
 
