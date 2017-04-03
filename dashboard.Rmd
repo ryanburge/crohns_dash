@@ -1,0 +1,195 @@
+---
+title: "Crohn's Dashboard"
+output: 
+ flexdashboard::flex_dashboard:
+    orientation: columns
+    social: menu
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(dplyr)
+library(plotly)
+library(ggplot2)
+library(readr)
+library(prophet)
+library(extrafont)
+library(leaflet)
+library(car)
+library(ggmap)
+library(lubridate)
+```
+
+
+Column {data-width=600}
+-----------------------------------------------------------------------
+
+### Prophet Predictions
+
+```{r, include=FALSE}
+poop <- read_csv('https://docs.google.com/spreadsheets/d/1Ow1OTP3QfyQyi1K2jeyqjv5eg_AzqF36Tn3sn5NSQQw/pub?gid=444517334&single=true&output=csv')
+
+poop$time <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M:%S",tz="")) ,format = "%H:%M:%S")
+poop$ds  <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M",tz="")) ,format = "%Y-%m-%d")
+
+poop$time <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M:%S",tz="")) ,format = "%H:%M:%S")
+poop$time <- as.POSIXct(poop$time, "%m/%d/%Y %H:%M:%S",tz="")
+
+poop$t2 <- as.POSIXct(poop$Timestamp, "%m/%d/%Y %H:%M:%S",tz="")
+poop$hour <- hour(poop$t2)
+#poop$hour <- Recode(poop$hour, "0:6=1; 7:10=2; 11:14=3; 15:19=4; 20:22=5; 23:24=1")
+
+day <- poop %>% group_by(ds) %>% summarise(y = n())
+
+m <- prophet(day)
+
+
+future <- make_future_dataframe(m, periods = 15)
+forecast <- predict(m, future)
+plot(m, forecast)
+prophet_plot_components(m, forecast)
+
+
+fb <-ggplot(forecast, aes(ds)) + geom_ribbon(aes(ymin = forecast$yhat_lower, ymax = forecast$yhat_upper), fill = "#3b5998") +
+  geom_line(aes(y = yhat), size =1, color = "#dfe3ee") +
+  geom_point(aes(y =yhat), color = "#dfe3ee") +  
+  xlab("Date") + ylab("Projected Number") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) +
+  theme(panel.background = element_rect(fill = "gray77")) +
+  ggtitle("Using Facebook's Prophet to make Predictions")
+```
+
+```{r}
+ggplotly(fb)
+```
+
+### Mapping the Movements
+
+```{r}
+poop$locate <- Recode(poop$`Where are You?`, "'Church' = '1600 Salem Road, Mount Vernon IL'; 
+                                      'EIU' = '600 Lincoln Avenue, Charleston IL';
+                                      'Fairview Heights' = 'Fairview Heights, IL';
+                                      'FBC' = '1600 Salem Road, Mount Vernon IL';
+                                      'Galleria' = 'Galleria St. Louis, MO';
+                                      'Home' = '1803 Isabella Avenue, Mt Vernon IL';
+                                      'Okawville' = 'Okawville, IL'")
+
+mapdata <- poop %>% group_by(locate) %>% summarise(count = n())        
+
+coords <- geocode(mapdata$locate)
+
+mapdata <- cbind(mapdata, coords)
+
+pop<-paste0("<b>Address</b>: ", mapdata$locate, "<br>",
+            "<b>Count</b>: ", mapdata$count)
+
+leaflet() %>% 
+  addProviderTiles(providers$Stamen.TonerHybrid) %>% 
+  addCircleMarkers(lng = mapdata$lon, lat = mapdata$lat, radius = mapdata$count, popup = pop)
+
+```
+
+
+Column {.tabset .tabset-fade data-width=400}
+-----------------------------------------------------------------------
+
+### Movements by Day
+```{r, fig.keep='none'}
+poop$time <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M:%S",tz="")) ,format = "%H:%M:%S")
+poop$day  <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M",tz="")) ,format = "%Y-%m-%d")
+
+freqdata <- poop %>% group_by(day) %>% summarise(y = n())
+
+byday <- ggplot(freqdata, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
+  theme(axis.text.x = element_text(angle = 90)) + 
+  xlab("Date") +ylab("Number of Movements") +
+  ggtitle("Daily Counts") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) + 
+  scale_fill_gradient(low = "burlywood", high = "burlywood4") + 
+  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash")
+
+ggplotly(byday)
+
+
+```
+
+### Quality by Day 
+
+```{r}
+qualitydata <- poop %>% group_by(day) %>% summarise(mean = mean(`How Bad Is It?`))
+qualitydata$mean <- 9 -qualitydata$mean
+
+quality <- ggplot(qualitydata, aes(x=day, y=mean)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
+  theme(axis.text.x = element_text(angle = 90)) + 
+  xlab("Date") +ylab("Higher Values = Worse") +
+  ggtitle("How Bad Is It?") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) + 
+  scale_fill_gradient(low = "gray87", high = "firebrick1") + 
+  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash")
+
+ggplotly(quality)
+
+```
+
+### Time of the Day
+```{r}
+
+byhour <- poop %>% group_by(hour) %>% summarise(y =n()) %>% mutate(pct = y/sum(y))
+
+hourplot <- ggplot(byhour, aes(x=hour, y=pct*100)) + geom_bar(aes(fill=pct), stat="identity") +  
+  xlab("Time of Day - 24 Hour Format") +ylab("Percent of Movements") +
+  ggtitle("Which Time of the Day is Worst?") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) + 
+  scale_fill_gradient(low = "deepskyblue4", high = "deepskyblue") + 
+  theme(legend.position="none")  +
+  scale_x_continuous(breaks = round(seq(min(byhour$hour), max(byhour$hour), by = 1),1))
+
+ggplotly(hourplot)
+```
+
+### Day of the Week
+```{r}
+poop$daysweek <- strftime(poop$ds,'%A')
+
+daysweek <- poop %>% group_by(daysweek) %>% summarise(y =n()) %>% mutate(pct = y/sum(y))
+
+daysweek$daysweek <- factor(daysweek$daysweek, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+
+dayweekplot <- ggplot(daysweek, aes(x=daysweek, y=pct*100)) + geom_bar(aes(fill=pct), stat="identity") +  
+  xlab("Day of the Week") +ylab("Percent of Movements") +
+  ggtitle("Which Day of the Week is Worst?") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) + 
+  scale_fill_gradient(low = "darkorchid4", high = "darkorchid1") + 
+  theme(legend.position="none")  
+
+ggplotly(dayweekplot)
+```
+
+### Grouped by Week
+```{r}
+poop$weeks <- format(poop$day, format="%Y-%U")
+poop$weeks <- as.POSIXct(poop$weeks)
+
+poop$wkcount <- (poop$weeks - min(poop$weeks))/dweeks(1)
+poop$wkcount <- round(poop$wkcount, 0)
+
+weekly <- poop %>% group_by(wkcount) %>% summarise(total.count =n()) %>% mutate(pct = total.count/sum(total.count))
+
+
+weeklyplot <- ggplot(weekly, aes(x=wkcount, y=total.count)) + geom_bar(aes(fill=total.count), stat="identity") +  
+  xlab("Grouped by Week") +ylab("Movements that Week") +
+  ggtitle("Is the Remicade Wearing off?") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(text=element_text(size=18, family="KerkisSans")) + 
+  scale_fill_gradient(low = "darkorange4", high = "darkorange1") + 
+  theme(legend.position="none")  
+
+ggplotly(weeklyplot)
+```
