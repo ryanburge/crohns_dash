@@ -12,7 +12,19 @@ poop$time <- as.POSIXct(poop$time, "%m/%d/%Y %H:%M:%S",tz="")
 
 poop$day  <- format(as.POSIXct(strptime(poop$Timestamp,"%m/%d/%Y %H:%M",tz="")) ,format = "%Y-%m-%d")
 
-freqdata <- poop %>% group_by(day) %>% summarise(y = n())
+plotdata <- poop %>% group_by(day) %>% summarise(y = n())
+plotdata$day <- as.Date(plotdata$day)
+
+alldates = seq(min(plotdata$day), max(plotdata$day), 1)
+
+dates0 = alldates[!(alldates %in% plotdata$day)]
+data0 = data.frame(day = dates0, y = NA_real_)
+
+data = rbind(plotdata, data0)
+data = data[order(data$day),]
+
+data[is.na(data)] <- 0
+
 
 byday <- ggplot(plotdata, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
   theme(axis.text.x = element_text(angle = 90)) + 
@@ -21,7 +33,7 @@ byday <- ggplot(plotdata, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = 
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text=element_text(size=18, family="KerkisSans")) + 
   scale_fill_gradient(low = "burlywood", high = "burlywood4") + 
-  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash")
+  theme(legend.position="none") + geom_vline(xintercept = 100,  linetype = "longdash")
 
 ggplotly(byday)
 
