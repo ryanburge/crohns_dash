@@ -3,8 +3,7 @@ title: "Crohn's Dashboard"
 output: 
  flexdashboard::flex_dashboard:
     orientation: columns
-    social: menu
-    source_code: embed
+    
 ---
 
 ```{r setup, include=FALSE}
@@ -114,14 +113,14 @@ data = data[order(data$day),]
 
 data[is.na(data)] <- 0
 
-byday <- ggplot(plotdata, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
+byday <- ggplot(data, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
   theme(axis.text.x = element_text(angle = 90)) + 
   xlab("Date") +ylab("Number of Movements") +
   ggtitle("Daily Counts") + 
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text=element_text(size=18, family="KerkisSans")) + 
   scale_fill_gradient(low = "burlywood", high = "burlywood4") + 
-  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash")
+  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash") 
 
 ggplotly(byday)
 
