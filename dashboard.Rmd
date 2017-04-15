@@ -18,6 +18,8 @@ library(leaflet)
 library(car)
 library(ggmap)
 library(lubridate)
+library(DT)
+library(stringr)
 ```
 
 
@@ -113,6 +115,9 @@ data = data[order(data$day),]
 
 data[is.na(data)] <- 0
 
+#title <- "Daily Counts"
+#mean <- paste("Mean =", round(mean(data$y), digits = 2))
+
 byday <- ggplot(data, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
   theme(axis.text.x = element_text(angle = 90)) + 
   xlab("Date") +ylab("Number of Movements") +
@@ -120,7 +125,7 @@ byday <- ggplot(data, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "ide
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text=element_text(size=18, family="KerkisSans")) + 
   scale_fill_gradient(low = "burlywood", high = "burlywood4") + 
-  theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash") 
+  theme(legend.position="none") + geom_hline(yintercept = mean(data$y),  linetype = "longdash") 
 
 ggplotly(byday)
 
@@ -165,15 +170,15 @@ ggplotly(hourplot)
 
 ### Day of the Week
 ```{r}
-poop$daysweek <- strftime(poop$ds,'%A')
+data$daysweek <- strftime(data$day,'%A')
 
-daysweek <- poop %>% group_by(daysweek) %>% summarise(y =n()) %>% mutate(pct = y/sum(y))
+daysweek <- data %>% group_by(daysweek) %>% summarise(mean = mean(y)) 
 
 daysweek$daysweek <- factor(daysweek$daysweek, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
 
 
-dayweekplot <- ggplot(daysweek, aes(x=daysweek, y=pct*100)) + geom_bar(aes(fill=pct), stat="identity") +  
-  xlab("Day of the Week") +ylab("Percent of Movements") +
+dayweekplot <- ggplot(daysweek, aes(x=daysweek, y=mean)) + geom_bar(aes(fill=mean), stat="identity") +  
+  xlab("Day of the Week") +ylab("Average Movements that Day") +
   ggtitle("Which Day of the Week is Worst?") + 
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text=element_text(size=18, family="KerkisSans")) + 
@@ -185,17 +190,19 @@ ggplotly(dayweekplot)
 
 ### Grouped by Week
 ```{r}
-poop$weeks <- format(poop$day, format="%Y-%U")
-poop$weeks <- as.POSIXct(poop$weeks)
 
-poop$wkcount <- (poop$weeks - min(poop$weeks))/dweeks(1)
-poop$wkcount <- round(poop$wkcount, 0)
-
-weekly <- poop %>% group_by(wkcount) %>% summarise(total.count =n()) %>% mutate(pct = total.count/sum(total.count))
+data$weeks <- format(data$day, format="%Y-%U")
+data$wk <- str_sub(data$weeks, start= -2)
 
 
-weeklyplot <- ggplot(weekly, aes(x=wkcount, y=total.count)) + geom_bar(aes(fill=total.count), stat="identity") +  
-  xlab("Grouped by Week") +ylab("Movements that Week") +
+#poop$wkcount <- (poop$weeks - min(poop$weeks))/dweeks(1)
+#poop$wkcount <- round(poop$wkcount, 0)
+
+weekly <- data %>% group_by(wk) %>% summarise(mean = mean(y)) 
+
+
+weeklyplot <- ggplot(weekly, aes(x=wk, y=mean)) + geom_bar(aes(fill=mean), stat="identity") +  
+  xlab("Week of the Year") +ylab("Average Movements Per Day of Each Week") +
   ggtitle("Is the Remicade Wearing off?") + 
   theme(plot.title = element_text(hjust = 0.5)) +
   theme(text=element_text(size=18, family="KerkisSans")) + 
@@ -204,3 +211,4 @@ weeklyplot <- ggplot(weekly, aes(x=wkcount, y=total.count)) + geom_bar(aes(fill=
 
 ggplotly(weeklyplot)
 ```
+
