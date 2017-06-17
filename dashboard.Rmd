@@ -20,6 +20,9 @@ library(ggmap)
 library(lubridate)
 library(DT)
 library(stringr)
+library(ggcal)
+Sys.setenv("plotly_username"="ryanburge")
+Sys.setenv("plotly_api_key"="bvzv16do7x")
 ```
 
 
@@ -63,7 +66,7 @@ fb <-ggplot(forecast, aes(ds)) + geom_ribbon(aes(ymin = forecast$yhat_lower, yma
 ```
 
 ```{r}
-ggplotly(fb)
+ggplotly(fb, width = 1100, height = 400)
 ```
 
 ### Mapping the Movements
@@ -80,6 +83,7 @@ poop$locate <- Recode(poop$`Where are You?`, "'Church' = '1600 Salem Road, Mount
 mapdata <- poop %>% group_by(locate) %>% summarise(count = n())        
 
 coords <- geocode(mapdata$locate)
+#coords <- read_csv("D:/crohns_dash/coords.csv")
 
 mapdata <- cbind(mapdata, coords)
 
@@ -115,10 +119,12 @@ data = data[order(data$day),]
 
 data[is.na(data)] <- 0
 
+data1 <- data %>% tail(90)
+
 #title <- "Daily Counts"
 #mean <- paste("Mean =", round(mean(data$y), digits = 2))
 
-byday <- ggplot(data, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
+byday <- ggplot(data1, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "identity") +  
   theme(axis.text.x = element_text(angle = 90)) + 
   xlab("Date") +ylab("Number of Movements") +
   ggtitle("Daily Counts") + 
@@ -127,9 +133,15 @@ byday <- ggplot(data, aes(x=day, y=y)) + geom_bar(aes(fill = ..y..), stat = "ide
   scale_fill_gradient(low = "burlywood", high = "burlywood4") + 
   theme(legend.position="none") + geom_hline(yintercept = mean(data$y),  linetype = "longdash") 
 
-ggplotly(byday)
+ggplotly(byday, width = 750, height = 850)
 
 
+```
+
+### Calendar View 
+
+```{r}
+ggcal(data$day, data$y) + scale_fill_gradient2(low="#000000",  high="#EB5757")
 ```
 
 ### Quality by Day 
@@ -147,7 +159,7 @@ quality <- ggplot(qualitydata, aes(x=day, y=mean)) + geom_bar(aes(fill = ..y..),
   scale_fill_gradient(low = "gray87", high = "firebrick1") + 
   theme(legend.position="none") + geom_vline(xintercept = 40.5,  linetype = "longdash")
 
-ggplotly(quality)
+ggplotly(quality, width = 750, height = 850)
 
 ```
 
@@ -165,7 +177,7 @@ hourplot <- ggplot(byhour, aes(x=hour, y=pct*100)) + geom_bar(aes(fill=pct), sta
   theme(legend.position="none")  +
   scale_x_continuous(breaks = round(seq(min(byhour$hour), max(byhour$hour), by = 1),1))
 
-ggplotly(hourplot)
+ggplotly(hourplot, width = 750, height = 850)
 ```
 
 ### Day of the Week
@@ -185,7 +197,7 @@ dayweekplot <- ggplot(daysweek, aes(x=daysweek, y=mean)) + geom_bar(aes(fill=mea
   scale_fill_gradient(low = "darkorchid4", high = "darkorchid1") + 
   theme(legend.position="none")  
 
-ggplotly(dayweekplot)
+ggplotly(dayweekplot, width = 750, height = 850)
 ```
 
 ### Grouped by Week
@@ -209,6 +221,6 @@ weeklyplot <- ggplot(weekly, aes(x=wk, y=mean)) + geom_bar(aes(fill=mean), stat=
   scale_fill_gradient(low = "darkorange4", high = "darkorange1") + 
   theme(legend.position="none")  
 
-ggplotly(weeklyplot)
+ggplotly(weeklyplot, width = 750, height = 850)
 ```
 
